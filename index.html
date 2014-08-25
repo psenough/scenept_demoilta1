@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+ <head>
+ 	<title>ScenePT Demoilta 5 June 2014</title>
+ 	<style>
+ 	@font-face {
+		font-family: 'Neuropol';
+		src: url('NEUROPOL.ttf') format('truetype');
+		font-weight: normal;
+		font-style: normal;
+	}
+	
+	body {
+		background: url('goldfish.jpg');
+		overflow: hidden;
+	}
+ 	.aligncenter {
+ 		position: absolute;
+ 		top: 50px;
+ 		width: 100%;
+ 		text-align: center;
+ 		margin: auto;
+ 	}
+ 	.aligncenter canvas {
+ 		box-shadow:inset 0px 0px 85px rgba(0,0,0,.5);
+		-webkit-box-shadow:inset 0px 0px 85px rgba(0,0,0,.5);
+		-moz-box-shadow:inset 0px 0px 85px rgba(0,0,0,.5);
+		/*background-color: #fff;*/
+	}
+	#text {
+		position: absolute;
+		top: 0px;
+		font-family: 'Neuropol';
+		color: #fff;
+		width: 100%;
+		height: 480px;
+		margin: auto;
+		text-align: center;
+		font-size: 30px;
+		overflow-y: hidden;
+	}
+ 	</style>
+	<script src="requestanimationframe.js"></script>
+  	<script type="application/javascript">
+
+rand = function(n){
+	return Math.floor(Math.random()*n);
+};
+  
+function Ants(x,y,vx,vy,acc){
+	this.x = x;
+	this.y = y;
+	this.vx = vx;
+	this.vy = vy;
+	this.acc = acc;
+	this.maxspeed = 10;
+	this.radius = 50;
+	
+	this.heading = function() {
+		return -1 * Math.atan2(-1 * this.vy, this.vx) + Math.PI*1.5;
+	}
+	
+	this.update = function(dist,vx,vy,w,h) {
+		if (dist < this.radius) {
+			//this.vx = (this.vx*.5 + vx*.25) + this.acc*.025;
+			this.vx = (this.vx + vx)*.5 + this.acc*.025;
+			if (this.vx > this.maxspeed) this.vx = this.maxspeed;
+			
+			//this.vy = (this.vy*.5 + vy*.25) + this.acc*.025;
+			this.vy = (this.vy + vy)*.5 + this.acc*.025;
+			if (this.vy > this.maxspeed) this.vy = this.maxspeed;
+		}
+				
+		if (this.x > w) {
+			this.x -= w;
+		}
+		if (this.x < 0) {
+			this.x += w;
+		}
+		if (this.y > h) {
+			this.y -= h;
+		}
+		if (this.y < 0) {
+			this.y += h;
+		}
+		
+	}
+}
+
+function init() {
+	var audio = document.getElementById('input');
+	audio.play();
+	
+	document.getElementById('hideme').style.display = 'none';
+
+	drawCanvas();
+	
+	//document.getElementById('text').scrollTop = 100;
+	//a = element.scrollTop  ;
+	//b  =  element.scrollHeight - element.clientHeight  ;
+}
+
+function drawCanvas() {
+
+	var canvas = document.getElementById("canvas");
+	var ctx = canvas.getContext("2d");
+	var w = ctx.width = 640;
+	var h = ctx.height = 480;
+	
+	ctx.shadowOffsetX = 5;
+	ctx.shadowOffsetY = 5;
+	ctx.shadowColor = 'rgba(0,0,0,0.2)';
+	
+	var num = 200;
+	var angle = (Math.PI*2)/num;
+	var size = 10;
+	var opening, phase1, phase2;
+	
+	var ants = [];
+	
+	for (var i=0; i<num; i++) {
+		ants[i] = new Ants( rand(w), rand(h),
+							Math.random()*3-1.0, Math.random()*3-1.0,
+							Math.random()*3-1.0);
+	}
+	
+	var windx = -1.0;
+	var windy = 1.0;
+
+	function drawThis() {
+		var d = new Date();
+		var timer = d.getTime();
+		
+		color = "rgba(200,0,0,0.2)";
+		ctx.fillStyle = color;
+	
+		for (var i=0; i<num; i++) {
+			
+				//update
+				ants[i].x += ants[i].vx;
+				ants[i].y += ants[i].vy;
+				
+				//find closest neighbour, align dirs with them
+				var cl = 0;
+				var subx = (ants[i].x-ants[0].x);
+				var suby = (ants[i].y-ants[0].y);
+				var dist = Math.sqrt(subx*subx+suby*suby);
+
+				var avgx = 0;
+				var avgy = 0;
+				var avgc = 0;
+
+				for (var j=0; j<num; j++) {
+					if (i!=j) {
+						subx = (ants[i].x-ants[j].x);
+						suby = (ants[i].y-ants[j].y);
+						var thisdist = Math.sqrt(subx*subx+suby*suby);
+						//console.log("thisdist"+j+": "+thisdist);
+	
+						//within radius, keep track of average
+						if (thisdist < ants[i].radius) {
+							avgx += ants[j].vx;
+							avgy += ants[j].vy;
+							avgc++;
+						}
+						
+						//closest
+						if (thisdist < dist) {
+							dist = thisdist;
+							cl = j;
+						}
+					}
+				}
+				
+				//follow closest
+				if (avgc < 2) {
+					ants[i].update(dist,ants[cl].vx,ants[cl].vy,w,h);
+				} else {
+					avgx += windx*Math.sin(timer/5000);
+					avgy += windy*Math.sin(timer/500)*Math.sin(timer/1000);
+					avgc++;
+				}
+				//follow average of within radius
+				ants[i].update(dist,avgx/avgc,avgy/avgc,w,h);
+
+				//draw
+				ctx.save();
+				ctx.translate( ants[i].x, ants[i].y );
+				ctx.rotate(ants[i].heading());
+				ctx.beginPath();
+				ctx.moveTo(-size*.5,-size*.5);
+				ctx.lineTo(0,size);
+				ctx.lineTo(size*.5,-size*.5);
+				//ctx.lineTo(size*.5,size/2*Math.sqrt(3));
+				ctx.fill();
+				ctx.closePath();
+				ctx.restore();
+		}
+	}
+	
+	requestAnimationFrame( animate );
+	
+	var d = new Date();
+	var n = d.getTime();
+	var scrollvalue = 0;
+
+	function animate() {
+		requestAnimationFrame( animate );
+		//ctx.clearRect(0,0,w,h);
+		//ctx.fillColor = "rgba(0, 255, 255, 1.0)";
+		//ctx.fillRect(0,0,w,h);
+		drawThis();
+		//setTimeout(loop,20);
+		
+		
+		var dom = document.getElementById('text');
+		if (dom) {
+			var d2 = new Date();
+			var n2 = d2.getTime(); 
+
+			var delta = n2 - n;
+			n = n2;
+		
+			scrollvalue += delta*0.02;
+		
+			if (scrollvalue > dom.scrollHeight - dom.clientHeight) scrollvalue = 0;
+		
+			//console.log(n2 + ' ' + n + ' ' + delta + ' ' + scrollvalue);
+		
+			dom.scrollTop = scrollvalue;
+		}
+	}
+}
+  </script>
+ </head>
+ <body onload="init()">
+ 	<div id="hideme">
+ 		<audio id="input" src="01_sci_fi_industries_-_azimutez.ogg" onloadedmetadata="loadedMetaData(event);"></audio><br />
+ 	</div>
+ 	<div class="aligncenter">
+   		<canvas id="canvas" width="640" height="480"></canvas>
+   		<div id="text">
+   			<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
+   			hello world<br><br><br>
+   			ps of TPOLM on the keys<br>
+   			with an important message<br>
+   			for all demoscene freaks<br>
+   			living in the Lisbon area<br>
+   			<br><br>
+   			mark 5 of June 2014<br>in your calendar<br>
+   			<br><br>
+   			you are summoned<br>
+   			to attend scenept demoilta #1<br>
+   			<br><br>
+   			true demowatching session<br>
+   			where i'll be having a beer<br>
+   			and watching demos<br>
+   			released during May<br>
+   			<br>
+   			mother always told me<br>
+   			socializing is important<br>
+   			and demomaking is not a crime<br>
+   			<br>
+   			so feel free to drop by<br>
+   			and join me<br>
+   			<br><br>
+   			we have available:<br>
+   			projector<br>
+   			sound system<br>
+   			internet<br>
+   			cooler for the beers<br>
+   			<br>
+   			what more could you ask for?<br>
+   			<br><br>
+   			we can shout AMIGA<br>
+   			and spot effects like:<br>
+   			rotating cubes<br>
+   			plasma effects<br>
+   			balls touching<br>
+   			starfields<br>
+   			hypnoglow<br>
+   			scroller effects<br>
+   			and more<br>
+   			<br><br>
+   			entrance fee is one superbock<br>
+   			session starts at 20:30<br>
+			ends whenever it ends<br>
+			i work the next day<br>
+			<br>
+			you can come one hour earlier<br>
+			and have dinner with me<br>
+			cafeteria costs 2.40<br>
+			and closes at 20:30<br>
+   			<br><br>
+   			partyplace is located at:<br>
+   			Artica's headquarters<br>
+   			Madan Park / FCT<br>
+   			edificio 6<br>
+   			Monte da Caparica<br>
+   			<br><br>
+   			Credits:<br>
+   			code & text - ps<br>
+   			music - Sci Fi Industries<br>
+   			<br><br>
+   			Greetings to:<br>
+   			ScenePT AllStars<br>
+   			Nothing<br>   			
+   			GlenZ<br>
+   			Napalm Core<br>
+   			Volumetric Illusions<br>
+   			Airbag<br>
+   			Radioactive Design<br>
+   			alien)(dream<br>
+   			Spontz<br>
+   			Madwizards<br>
+   			Satori<br>
+   			Rift<br>
+   			MFX<br>
+   			Kewlers<br>
+   			flo<br>
+   			Traction<br>
+   			Accession<br>
+   			xplsv<br>
+   			ate bit<br>
+   			Conspiracy<br>
+   			HiRMU<br>
+   			Jumalauta<br>
+   			Andromeda Software Development<br>
+   			Farbrausch<br>
+   			Kosmoplovci<br>
+   			TPOLM<br>
+   			Enough Records<br>
+   			<br>
+   			and you...
+   			<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
+   		</div>
+   	</div>
+ </body>
+</html>
